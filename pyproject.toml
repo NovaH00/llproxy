@@ -1,0 +1,14 @@
+[project]
+name = "llproxy"
+version = "0.1.0"
+description = "Lite LLM Proxy lets you create a proxy for OpenAI compatible providers for tracing requests/responses"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "asyncpg==0.31.0",
+    "fastapi==0.135.2",
+    "httpx==0.28.1",
+    "pydantic==2.12.5",
+    "python-dotenv==1.2.2",
+    "uvicorn==0.42.0",
+]
