@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
-from typing import final
+from typing import Any, final
 
-import asyncpg  
+import asyncpg
 
 from .schemas.logs import LogEntry, LogStats
 from .schemas.openai import ChatCompletionRequest, ChatCompletionResponse
 from .schemas.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 
 @final
@@ -20,7 +23,7 @@ class DBManager:
     _username: str
     _password: str
     _db_name: str
-    _pool: asyncpg.Pool | None 
+    _pool: asyncpg.Pool | None
 
     def __init__(
         self, host: str, port: str, username: str, password: str, db_name: str
@@ -77,7 +80,7 @@ class DBManager:
             await self._pool.close()
 
     async def _init_tables(self) -> None:
-        async with self._pool.acquire() as conn: # pyright: ignore 
+        async with self._pool.acquire() as conn: #pyright: ignore
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
@@ -128,7 +131,7 @@ class DBManager:
 
     async def insert_log(self, log_entry: LogEntry) -> int:
         """Insert a log entry and return its ID."""
-        async with self._pool.acquire() as conn: # pyright: ignore
+        async with self._pool.acquire() as conn: #pyright: ignore
             request_body_json = None
             if log_entry.request_body is not None:
                 request_body_json = log_entry.request_body.model_dump_json()
@@ -145,7 +148,7 @@ class DBManager:
             if log_entry.response_headers:
                 response_headers_json = json.dumps(log_entry.response_headers)
 
-            result = await conn.fetchrow( # pyright: ignore
+            result = await conn.fetchrow( #pyright: ignore
                 """
                 INSERT INTO logs (
                     path, method, provider, model,
@@ -174,14 +177,14 @@ class DBManager:
                 log_entry.total_duration_ms,
                 log_entry.error_message,
             )
-            return result["id"] # pyright: ignore
+            return result["id"] #pyright: ignore
 
     async def get_log(self, log_id: int) -> LogEntry | None:
         """Get a single log entry by ID."""
-        async with self._pool.acquire() as conn: # pyright: ignore
-            row = await conn.fetchrow("SELECT * FROM logs WHERE id = $1", log_id) # pyright: ignore
+        async with self._pool.acquire() as conn: #pyright: ignore
+            row = await conn.fetchrow("SELECT * FROM logs WHERE id = $1", log_id) #pyright: ignore
             if row:
-                return self._row_to_log_entry(dict(row)) # pyright: ignore
+                return self._row_to_log_entry(dict(row)) #pyright: ignore
             return None
 
     def _row_to_log_entry(self, row: dict[str, object]) -> LogEntry:
@@ -217,7 +220,7 @@ class DBManager:
                 except json.JSONDecodeError:
                     pass
             if isinstance(raw_headers, dict):
-                request_headers = raw_headers # pyright: ignore
+                request_headers = raw_headers #pyright: ignore
 
         response_headers: dict[str, str] | None = None
         raw_headers = row.get("response_headers")
@@ -228,27 +231,27 @@ class DBManager:
                 except json.JSONDecodeError:
                     pass
             if isinstance(raw_headers, dict):
-                response_headers = raw_headers # pyright: ignore
+                response_headers = raw_headers #pyright: ignore
 
         return LogEntry(
-            id                = row["id"],                    # pyright: ignore
-            created_at        = row["created_at"],            # pyright: ignore
-            path              = row["path"],                  # pyright: ignore
-            method            = row["method"],                # pyright: ignore
-            provider          = row.get("provider"),          # pyright: ignore
-            model             = row.get("model"),             # pyright: ignore
+            id                = row["id"],                    #pyright: ignore
+            created_at        = row["created_at"],            #pyright: ignore
+            path              = row["path"],                  #pyright: ignore
+            method            = row["method"],                #pyright: ignore
+            provider          = row.get("provider"),          #pyright: ignore
+            model             = row.get("model"),             #pyright: ignore
             request_headers   = request_headers, 
-            request_body_raw  = row.get("request_body_raw"),  # pyright: ignore
+            request_body_raw  = row.get("request_body_raw"),  #pyright: ignore
             request_body      = request_body, 
-            response_status   = row.get("response_status"),   # pyright: ignore
+            response_status   = row.get("response_status"),   #pyright: ignore
             response_headers  = response_headers, 
-            response_body_raw = row.get("response_body_raw"), # pyright: ignore
+            response_body_raw = row.get("response_body_raw"), #pyright: ignore
             response_body     = response_body, 
-            is_stream         = row.get("is_stream", False),  # pyright: ignore
-            chunk_count       = row.get("chunk_count", 0),    # pyright: ignore
-            latency_ms        = row.get("latency_ms"),        # pyright: ignore
-            total_duration_ms = row.get("total_duration_ms"), # pyright: ignore
-            error_message     = row.get("error_message"),     # pyright: ignore
+            is_stream         = row.get("is_stream", False),  #pyright: ignore
+            chunk_count       = row.get("chunk_count", 0),    #pyright: ignore
+            latency_ms        = row.get("latency_ms"),        #pyright: ignore
+            total_duration_ms = row.get("total_duration_ms"), #pyright: ignore
+            error_message     = row.get("error_message"),     #pyright: ignore
         )
 
     async def get_logs(
@@ -297,7 +300,7 @@ class DBManager:
             params.append(end_date)
             param_idx += 1
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1" # pyright: ignore
+        where_clause = " AND ".join(conditions) if conditions else "1=1" #pyright: ignore
 
         query = f"""
             SELECT * FROM logs
@@ -307,9 +310,9 @@ class DBManager:
         """
         params.extend([limit, offset])
 
-        async with self._pool.acquire() as conn: # pyright: ignore
-            rows = await conn.fetch(query, *params) # pyright: ignore
-            return [self._row_to_log_entry(dict(row)) for row in rows] # pyright: ignore
+        async with self._pool.acquire() as conn: #pyright: ignore
+            rows = await conn.fetch(query, *params) #pyright: ignore
+            return [self._row_to_log_entry(dict(row)) for row in rows] #pyright: ignore
 
     async def count_logs(
         self,
@@ -419,7 +422,7 @@ class DBManager:
         """Set settings from a Settings object."""
         import json
 
-        async with self._pool.acquire() as conn:  # pyright: ignore
+        async with self._pool.acquire() as conn:  #pyright: ignore
             settings_dict = settings.model_dump(exclude_unset=True)
             for key, value in settings_dict.items():
                 if value is not None:

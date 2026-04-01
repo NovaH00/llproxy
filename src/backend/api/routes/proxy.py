@@ -1,5 +1,6 @@
 import json
 import time
+import logging
 from collections.abc import AsyncGenerator
 
 import httpx
@@ -8,8 +9,12 @@ from starlette.responses import StreamingResponse
 
 from ...database import DBManager
 from ...dependencies.database import get_db_manager
+from ...dependencies.logging import get_logging_service
 from ...schemas.logs import LogEntry
 from ...schemas.openai import ChatCompletionRequest, ChatCompletionResponse
+from ...services.logging_service import LoggingService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/proxy")
 
@@ -21,7 +26,7 @@ async def stream_and_log(
     body: bytes,
     params: dict[str, str],
     log_entry: LogEntry,
-    db: DBManager,
+    logging_service: LoggingService,
 ) -> AsyncGenerator[bytes, None]:
     """Stream from upstream and log the response."""
     start_time = time.time()
@@ -87,15 +92,23 @@ async def stream_and_log(
             log_entry.response_status = status_code
 
         finally:
-            _ = await db.insert_log(log_entry)
+            # Enqueue log entry for async processing (non-blocking)
+            success = await logging_service.enqueue(log_entry)
+            if success:
+                logger.info(f"[LOGGING] Enqueued streaming log entry (path={log_entry.path})")
+            else:
+                logger.error(f"[LOGGING ERROR] Failed to enqueue streaming log (queue full)")
 
 
 @router.api_route("/{path:path}", methods=["POST", "GET"], operation_id="proxy_request")
 async def proxy(
     request: Request,
     db: DBManager = Depends(get_db_manager),
+    logging_service: LoggingService = Depends(get_logging_service),
 ) -> Response:
     """Proxy requests to the upstream LLM provider and log them."""
+    logger.info(f"[PROXY] Received request: {request.method} {request.url.path}")
+    
     settings = await db.get_settings()
     upstream_url = settings.upstream_url
 
@@ -140,7 +153,7 @@ async def proxy(
     try:
         if log_entry.is_stream:
             return StreamingResponse(
-                stream_and_log(request.method, url, headers, body, params, log_entry, db),
+                stream_and_log(request.method, url, headers, body, params, log_entry, logging_service),
                 status_code=200,
                 media_type="text/event-stream",
             )
@@ -172,7 +185,12 @@ async def proxy(
         except (json.JSONDecodeError, Exception):
             pass
 
-        _ = await db.insert_log(log_entry)
+        # Enqueue log entry for async processing
+        success = await logging_service.enqueue(log_entry)
+        if success:
+            logger.info(f"[LOGGING] Enqueued non-streaming log entry (path={log_entry.path})")
+        else:
+            logger.error(f"[LOGGING ERROR] Failed to enqueue non-streaming log (queue full)")
 
         return Response(
             content=response_body,
@@ -187,7 +205,12 @@ async def proxy(
         log_entry.error_message = str(e)
         log_entry.response_status = 502
 
-        _ = await db.insert_log(log_entry)
+        # Enqueue error log entry
+        success = await logging_service.enqueue(log_entry)
+        if success:
+            logger.info(f"[LOGGING] Enqueued error log entry (path={log_entry.path})")
+        else:
+            logger.error(f"[LOGGING ERROR] Failed to enqueue error log (queue full)")
 
         return Response(
             content=json.dumps({"error": f"Upstream request failed: {str(e)}"}),
@@ -200,7 +223,12 @@ async def proxy(
         log_entry.latency_ms = latency_ms
         log_entry.error_message = str(e)
 
-        _ = await db.insert_log(log_entry)
+        # Enqueue exception log entry
+        success = await logging_service.enqueue(log_entry)
+        if success:
+            logger.info(f"[LOGGING] Enqueued exception log entry (path={log_entry.path})")
+        else:
+            logger.error(f"[LOGGING ERROR] Failed to enqueue exception log (queue full)")
 
         return Response(
             content=json.dumps({"error": f"Proxy error: {str(e)}"}),

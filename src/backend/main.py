@@ -1,14 +1,27 @@
 from contextlib import asynccontextmanager
+import logging
+import sys
 
 from fastapi import FastAPI
 
-from .api import proxy_router, settings_router, logs_router 
+from .api import proxy_router, settings_router, logs_router
 from .config import AppConfig, DBConfig
 from .database import DBManager
+from .services.logging_service import LoggingService
+
+# Configure logging to show our custom log messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s: %(message)s',
+    stream=sys.stdout
+)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database
     db_manager = DBManager(
         host=DBConfig.HOST,
         port=DBConfig.PORT,
@@ -18,11 +31,27 @@ async def lifespan(app: FastAPI):
     )
 
     await db_manager.connect()
-
     app.state.db_manager = db_manager
+    
+    # Initialize and start logging service
+    logging_service = LoggingService(db_manager)
+    await logging_service.start()
+    app.state.logging_service = logging_service
+    
+    logger.info("[MAIN] Application started")
+    
     yield
-
+    
+    # Graceful shutdown
+    logger.info("[MAIN] Shutting down...")
+    
+    # Stop logging service (drain queue)
+    await logging_service.stop()
+    
+    # Close database connections
     await db_manager.close()
+    
+    logger.info("[MAIN] Shutdown complete")
 
 
 app = FastAPI(lifespan=lifespan)

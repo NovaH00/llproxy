@@ -130,7 +130,7 @@ export function Logs() {
             <CardContent className="flex-1 overflow-auto min-h-0 flex flex-col gap-4">
               <div className="flex-shrink-0">
                 <h4 className="text-sm font-medium mb-2">Headers</h4>
-                <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-24">
+                <pre className="bg-muted p-3 rounded-md text-xs overflow-auto h-36">
                   {selectedLog.request_headers
                     ? JSON.stringify(selectedLog.request_headers, null, 2)
                     : "No headers"}
@@ -149,33 +149,26 @@ export function Logs() {
 
           <Card className="flex flex-col min-h-0">
             <CardHeader className="flex-shrink-0">
-              <CardTitle className="text-lg">Response</CardTitle>
+              <div className="flex items-center ">
+                <CardTitle className="text-lg mr-4">Response</CardTitle>
+                <Badge variant={selectedLog.response_status && selectedLog.response_status >= 400 ? "destructive" : "success"}>
+                  {selectedLog.response_status || "N/A"}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto min-h-0 flex flex-col gap-4">
               <div className="flex-shrink-0">
-                <div className="flex gap-4 mb-4">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Status:</span>{" "}
-                    <Badge variant={selectedLog.response_status && selectedLog.response_status >= 400 ? "destructive" : "success"}>
-                      {selectedLog.response_status || "N/A"}
-                    </Badge>
-                  </div>
-                  {selectedLog.is_stream && (
-                    <div>
-                      <span className="text-sm text-muted-foreground">Chunks:</span>{" "}
-                      <span className="font-medium">{selectedLog.chunk_count}</span>
-                    </div>
-                  )}
-                </div>
                 <h4 className="text-sm font-medium mb-2">Headers</h4>
-                <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-24">
+                <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-36">
                   {selectedLog.response_headers
                     ? JSON.stringify(selectedLog.response_headers, null, 2)
                     : "No headers"}
                 </pre>
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
-                <h4 className="text-sm font-medium mb-2">Body</h4>
+                <h4 className="text-sm font-medium mb-2">
+                  Body {selectedLog.is_stream && <span className="text-muted-foreground font-normal">({selectedLog.chunk_count} chunks)</span>}
+                </h4>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto flex-1 min-h-0">
                   {selectedLog.response_body
                     ? JSON.stringify(selectedLog.response_body, null, 2)

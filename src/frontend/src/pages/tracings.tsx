@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2 } from "lucide-react"
 import { ConversationView } from "@/components/conversation-view"
 import { MetadataView } from "@/components/metadata-view"
+import { ResponseFormatCard } from "@/components/response-format-card"
 
 export function Tracings() {
   const queryClient = useQueryClient()
@@ -129,16 +130,24 @@ export function Tracings() {
             </Card>
           </div>
 
-          <div className="min-h-0">
-            <Card className="h-full">
-              <CardHeader className="flex-shrink-0">
+          <div className="min-h-0 flex flex-col gap-4">
+            {/* Performance & Metadata - fits content */}
+            <Card className="flex-shrink-0">
+              <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <Cpu className="h-5 w-5" />
                   Performance & Metadata
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-auto min-h-0">
+              <CardContent>
                 <MetadataView log={selectedLog} />
+              </CardContent>
+            </Card>
+
+            {/* Response Format Card - takes remaining space */}
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardContent className="flex-1 overflow-auto min-h-0 p-0">
+                <ResponseFormatCard responseFormat={selectedLog.request_body?.response_format} />
               </CardContent>
             </Card>
           </div>
