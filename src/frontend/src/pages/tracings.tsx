@@ -29,6 +29,7 @@ export function Tracings() {
     queryFn: () => api.logs.listTracings({
       limit: 100,
     }),
+    refetchInterval: 5000,
   })
 
   const selectedLog = logs?.find(log => log.id === selectedId) || null
@@ -52,11 +53,11 @@ export function Tracings() {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "N/A"
     const date = new Date(dateStr)
-    const time = date.toLocaleTimeString('en-GB', { hour12: false })
+    const time = date.toLocaleTimeString(undefined, { hour12: false })
     const day = date.getDate().toString().padStart(2, '0')
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const year = date.getFullYear()
-    return `${time} ${day}/${month}/${year}`
+    return `${time} ${day}-${month}-${year}`
   }
 
   const getMessageCount = (log: LogEntry) => {
@@ -184,24 +185,23 @@ export function Tracings() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Time</TableHead>
+                  <TableHead>Upstream URL</TableHead>
                   <TableHead>Path</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Messages</TableHead>
                   <TableHead>Tokens</TableHead>
-                  <TableHead>TTFT</TableHead>
-                  <TableHead>Gen Speed</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : logs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No tracings found
                     </TableCell>
                   </TableRow>
@@ -216,6 +216,9 @@ export function Tracings() {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatTime(log.created_at)}
                       </TableCell>
+                      <TableCell className="text-sm truncate max-w-[200px]" title={log.provider || ""}>
+                        {log.provider || "-"}
+                      </TableCell>
                       <TableCell className="font-mono text-sm max-w-[200px] truncate">
                         {log.path}
                       </TableCell>
@@ -227,27 +230,6 @@ export function Tracings() {
                       </TableCell>
                       <TableCell className="text-sm font-mono">
                         {getTokenCount(log)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {log.latency_ms ? `${log.latency_ms}ms` : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {log.response_body_raw ? (() => {
-                          const lines = log.response_body_raw.split("\n")
-                          for (const line of lines.reverse()) {
-                            if (line.startsWith("data: ") && line !== "data: [DONE]") {
-                              try {
-                                const chunk = JSON.parse(line.slice(6))
-                                if (chunk.timings?.predicted_per_second) {
-                                  return `${chunk.timings.predicted_per_second.toFixed(1)} t/s`
-                                }
-                              } catch {
-                                continue
-                              }
-                            }
-                          }
-                          return "-"
-                        })() : "-"}
                       </TableCell>
                     </TableRow>
                   ))

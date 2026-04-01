@@ -81,7 +81,7 @@ class DBManager:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     path TEXT NOT NULL,
                     method TEXT NOT NULL,
                     provider TEXT,
@@ -104,7 +104,7 @@ class DBManager:
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY,
                     value JSONB NOT NULL,
-                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             """)
             await conn.execute("""
@@ -404,8 +404,8 @@ class DBManager:
         async with self._pool.acquire() as conn: #pyright: ignore
             rows = await conn.fetch("SELECT key, value FROM settings") #pyright: ignore
             settings_dict = {}
-            for row in rows:
-                value = row["value"]
+            for row in rows: #pyright: ignore
+                value = row["value"] #pyright:ignore
                 # JSONB values come as strings, need to parse them
                 if isinstance(value, str):
                     try:

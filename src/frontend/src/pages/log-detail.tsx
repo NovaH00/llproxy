@@ -37,11 +37,11 @@ export function LogDetail() {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "N/A"
     const date = new Date(dateStr)
-    const time = date.toLocaleTimeString('en-GB', { hour12: false })
+    const time = date.toLocaleTimeString(undefined, { hour12: false })
     const day = date.getDate().toString().padStart(2, '0')
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const year = date.getFullYear()
-    return `${time} ${day}/${month}/${year}`
+    return `${time} ${day}-${month}-${year}`
   }
 
   const formatJSON = (obj: unknown) => {

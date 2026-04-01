@@ -34,4 +34,4 @@ app.include_router(proxy_router)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app=app, host=AppConfig.HOST, port=AppConfig.PORT)
+    uvicorn.run(app="src.backend.main:app", host=AppConfig.HOST, port=AppConfig.PORT, reload=True)

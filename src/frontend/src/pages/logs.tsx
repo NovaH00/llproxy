@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { LogEntry } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +32,7 @@ export function Logs() {
       provider: filters.provider || undefined,
       method: filters.method || undefined,
     }),
+    refetchInterval: 5000,
   })
 
   const selectedLog = logs?.find(log => log.id === selectedId) || null
@@ -56,27 +56,11 @@ export function Logs() {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "N/A"
     const date = new Date(dateStr)
-    const time = date.toLocaleTimeString('en-GB', { hour12: false })
+    const time = date.toLocaleTimeString(undefined, { hour12: false })
     const day = date.getDate().toString().padStart(2, '0')
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const year = date.getFullYear()
-    return `${time} ${day}/${month}/${year}`
-  }
-
-  const getStatusBadge = (log: LogEntry) => {
-    if (log.error_message) {
-      return <Badge variant="destructive">Error</Badge>
-    }
-    if (log.is_stream) {
-      return <Badge variant="secondary">Streaming</Badge>
-    }
-    if (log.response_status && log.response_status >= 400) {
-      return <Badge variant="destructive">{log.response_status}</Badge>
-    }
-    if (log.response_status && log.response_status >= 200) {
-      return <Badge variant="success">{log.response_status}</Badge>
-    }
-    return <Badge variant="outline">Unknown</Badge>
+    return `${time} ${day}-${month}-${year}`
   }
 
   const getMethodBadge = (method: string) => {
@@ -256,24 +240,22 @@ export function Logs() {
                   <TableHead>ID</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead>Method</TableHead>
+                  <TableHead>Upstream URL</TableHead>
                   <TableHead>Path</TableHead>
                   <TableHead>Model</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Latency</TableHead>
-                  <TableHead>Stream</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : logs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No logs found
                     </TableCell>
                   </TableRow>
@@ -289,34 +271,15 @@ export function Logs() {
                         {formatTime(log.created_at)}
                       </TableCell>
                       <TableCell>{getMethodBadge(log.method)}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[150px]" title={log.provider || ""}>
+                        {log.provider || "-"}
+                      </TableCell>
                       <TableCell className="font-mono text-sm max-w-[200px] truncate">
                         {log.path}
                       </TableCell>
                       <TableCell className="text-sm">{log.model || "-"}</TableCell>
-                      <TableCell>{getStatusBadge(log)}</TableCell>
                       <TableCell className="text-sm">
                         {log.latency_ms ? `${log.latency_ms}ms` : log.total_duration_ms ? `${log.total_duration_ms}ms` : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {log.is_stream ? (
-                          <Badge variant="secondary" className="text-xs">
-                            Yes ({log.chunk_count})
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">No</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteMutation.mutate(log.id)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))

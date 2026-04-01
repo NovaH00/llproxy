@@ -7,6 +7,7 @@ export function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: () => api.logs.getStats(),
+    refetchInterval: 5000,
   })
 
   if (isLoading) {
