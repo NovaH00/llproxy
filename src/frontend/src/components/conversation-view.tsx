@@ -92,6 +92,19 @@ interface ConversationViewProps {
 export function ConversationView({ log }: ConversationViewProps) {
   const messages = log.request_body?.messages || []
 
+  // Helper to extract text from content (string or array of content blocks)
+  const extractText = (content: string | unknown[] | null | undefined): string => {
+    if (!content) return ""
+    if (typeof content === "string") return content
+    if (Array.isArray(content)) {
+      return content
+        .map((block: any) => block?.text || block?.content || "")
+        .filter(Boolean)
+        .join("\n")
+    }
+    return String(content)
+  }
+
   // Extract assistant message and reasoning from response
   let assistantContent: string | null = null
   let reasoningContent: string | null = null
@@ -99,7 +112,7 @@ export function ConversationView({ log }: ConversationViewProps) {
 
   if (log.response_body?.choices?.[0]?.message) {
     const msg = log.response_body.choices[0].message
-    assistantContent = msg.content || null
+    assistantContent = extractText(msg.content as string | unknown[] | null | undefined) || null
     if ((msg as any).reasoning_content) {
       reasoningContent = (msg as any).reasoning_content
     }
@@ -186,9 +199,9 @@ export function ConversationView({ log }: ConversationViewProps) {
   }
 
   const allMessages: Message[] = [
-    ...messages.map(m => ({ 
-      role: m.role, 
-      content: m.content,
+    ...messages.map(m => ({
+      role: m.role,
+      content: extractText(m.content),
       tool_calls: m.tool_calls,
       tool_call_id: m.tool_call_id
     })),

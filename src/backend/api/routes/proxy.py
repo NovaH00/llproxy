@@ -135,6 +135,8 @@ async def proxy(
         log_entry.request_body_raw = body.decode("utf-8", errors="replace")
         try:
             request_json = json.loads(log_entry.request_body_raw)
+            # Extract model from raw JSON as fallback even if validation fails
+            log_entry.model = request_json.get("model")
             request_body = ChatCompletionRequest.model_validate(request_json)
             log_entry.request_body = request_body
             log_entry.is_stream = request_body.stream

@@ -100,7 +100,7 @@ export function MetadataView({ log }: MetadataViewProps) {
 
   const performanceStats: StatWithExplanation[] = [
     {
-      label: "Total Tokens",
+      label: "Processed Tokens",
       value: (
         <span>
           <span className="text-blue-500 dark:text-blue-400">{inputTokens.toLocaleString()}</span>
@@ -134,7 +134,7 @@ export function MetadataView({ log }: MetadataViewProps) {
       ),
     },
     {
-      label: "Prompt Speed",
+      label: "Prompt Processing Speed",
       value: timings?.prompt_per_second ? `${timings.prompt_per_second.toFixed(2)} tok/s` : "N/A",
       explanation: (
         <div className="space-y-2">

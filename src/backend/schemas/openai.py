@@ -13,7 +13,7 @@ class ChatMessage(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     role: str
-    content: str | None = None
+    content: str | list | None = None
 
 
 class ChatCompletionRequest(BaseModel):

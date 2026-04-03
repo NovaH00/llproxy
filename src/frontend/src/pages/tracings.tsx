@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2, FileJson } from "lucide-react"
+import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2 } from "lucide-react"
 import { ConversationView } from "@/components/conversation-view"
 import { MetadataView } from "@/components/metadata-view"
 import { ResponseFormatCard } from "@/components/response-format-card"
@@ -74,6 +74,38 @@ export function Tracings() {
       log.response_body_raw?.includes('"content"')
     )
     return requestMessages + (hasAssistantResponse ? 1 : 0)
+  }
+
+  const getProcessedTokens = (log: LogEntry): { input: number; output: number } | null => {
+    // Try to get from parsed response body usage
+    if (log.response_body?.usage) {
+      return {
+        input: log.response_body.usage.prompt_tokens || 0,
+        output: log.response_body.usage.completion_tokens || 0,
+      }
+    }
+
+    // Try to get from raw stream timings
+    if (log.response_body_raw) {
+      const lines = log.response_body_raw.split("\n")
+      for (const line of lines.reverse()) {
+        if (line.startsWith("data: ") && line !== "data: [DONE]") {
+          try {
+            const chunk = JSON.parse(line.slice(6))
+            if (chunk.timings) {
+              return {
+                input: chunk.timings.prompt_n || 0,
+                output: chunk.timings.predicted_n || 0,
+              }
+            }
+          } catch {
+            continue
+          }
+        }
+      }
+    }
+
+    return null
   }
 
   if (selectedLog) {
@@ -179,23 +211,26 @@ export function Tracings() {
                   <TableHead>Path</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Messages</TableHead>
+                  <TableHead>Processed Tokens</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredLogs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {searchQuery ? "No tracings match your search" : "No tracings found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredLogs?.map((log) => (
+                  filteredLogs?.map((log) => {
+                    const tokens = getProcessedTokens(log)
+                    return (
                     <TableRow
                       key={log.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -218,8 +253,20 @@ export function Tracings() {
                           {getMessageCount(log)} msgs
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {tokens ? (
+                          <span>
+                            <span className="text-blue-500 dark:text-blue-400">{tokens.input}</span>
+                            {" + "}
+                            <span className="text-green-500 dark:text-green-400">{tokens.output}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  ))
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

@@ -54,7 +54,7 @@ export interface ToolCall {
 
 export interface ChatMessage {
   role: string
-  content: string | null
+  content: string | unknown[] | null
   reasoning_content?: string | null
   tool_calls?: ToolCall[]
   tool_call_id?: string
