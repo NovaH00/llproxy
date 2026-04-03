@@ -38,10 +38,21 @@ export interface ChatCompletionRequest {
   };
 }
 
+export interface ToolCall {
+  id: string
+  type: string
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
 export interface ChatMessage {
-  role: string;
-  content: string | null;
-  reasoning_content?: string | null;
+  role: string
+  content: string | null
+  reasoning_content?: string | null
+  tool_calls?: ToolCall[]
+  tool_call_id?: string
 }
 
 export interface ChatCompletionResponse {

@@ -71,6 +71,17 @@ export function Tracings() {
   }
 
   const getTokenCount = (log: LogEntry): string => {
+    // First try to get from parsed response body (non-streaming)
+    if (log.response_body?.usage) {
+      const usage = log.response_body.usage
+      const input = usage.prompt_tokens || 0
+      const output = usage.completion_tokens || 0
+      if (input > 0 || output > 0) {
+        return `${input}+${output}`
+      }
+    }
+    
+    // For streaming responses, extract from timings in the last chunk
     if (log.response_body_raw) {
       const lines = log.response_body_raw.split("\n")
       for (const line of lines.reverse()) {

@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/proxy")
 
-
 async def stream_and_log(
     method: str,
     url: str,
@@ -170,6 +169,7 @@ async def proxy(
 
         latency_ms = int((time.time() - start_time) * 1000)
         log_entry.latency_ms = latency_ms
+        log_entry.total_duration_ms = latency_ms  # For non-streaming, TTFT == total duration
         log_entry.response_status = upstream_response.status_code
         log_entry.response_headers = dict(upstream_response.headers)
 
@@ -202,6 +202,7 @@ async def proxy(
     except httpx.RequestError as e:
         latency_ms = int((time.time() - start_time) * 1000)
         log_entry.latency_ms = latency_ms
+        log_entry.total_duration_ms = latency_ms  # For non-streaming, TTFT == total duration
         log_entry.error_message = str(e)
         log_entry.response_status = 502
 
@@ -221,6 +222,7 @@ async def proxy(
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
         log_entry.latency_ms = latency_ms
+        log_entry.total_duration_ms = latency_ms  # For non-streaming, TTFT == total duration
         log_entry.error_message = str(e)
 
         # Enqueue exception log entry

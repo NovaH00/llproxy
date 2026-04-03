@@ -9,10 +9,9 @@ from .config import AppConfig, DBConfig
 from .database import DBManager
 from .services.logging_service import LoggingService
 
-# Configure logging to show our custom log messages
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s',
+    level=logging.DEBUG,
+    format='%(levelname)s:     %(message)s',
     stream=sys.stdout
 )
 
@@ -38,12 +37,7 @@ async def lifespan(app: FastAPI):
     await logging_service.start()
     app.state.logging_service = logging_service
     
-    logger.info("[MAIN] Application started")
-    
     yield
-    
-    # Graceful shutdown
-    logger.info("[MAIN] Shutting down...")
     
     # Stop logging service (drain queue)
     await logging_service.stop()
@@ -51,8 +45,6 @@ async def lifespan(app: FastAPI):
     # Close database connections
     await db_manager.close()
     
-    logger.info("[MAIN] Shutdown complete")
-
 
 app = FastAPI(lifespan=lifespan)
 

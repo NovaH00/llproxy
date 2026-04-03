@@ -139,9 +139,25 @@ export function Logs() {
               <div className="flex-1 min-h-0 flex flex-col">
                 <h4 className="text-sm font-medium mb-2">Body</h4>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto flex-1 min-h-0">
-                  {selectedLog.request_body
-                    ? JSON.stringify(selectedLog.request_body, null, 2)
-                    : selectedLog.request_body_raw || "No body"}
+                  {(() => {
+                    // For request body, try to pretty print JSON
+                    if (selectedLog.request_body) {
+                      return JSON.stringify(selectedLog.request_body, null, 2)
+                    }
+                    
+                    // Fallback: try to parse raw body as JSON for pretty printing
+                    if (selectedLog.request_body_raw) {
+                      try {
+                        const parsed = JSON.parse(selectedLog.request_body_raw)
+                        return JSON.stringify(parsed, null, 2)
+                      } catch {
+                        // Not valid JSON, show as-is
+                        return selectedLog.request_body_raw
+                      }
+                    }
+                    
+                    return "No body"
+                  })()}
                 </pre>
               </div>
             </CardContent>
@@ -170,9 +186,30 @@ export function Logs() {
                   Body {selectedLog.is_stream && <span className="text-muted-foreground font-normal">({selectedLog.chunk_count} chunks)</span>}
                 </h4>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto flex-1 min-h-0">
-                  {selectedLog.response_body
-                    ? JSON.stringify(selectedLog.response_body, null, 2)
-                    : selectedLog.response_body_raw || "No body"}
+                  {(() => {
+                    // For streaming responses, show raw SSE format
+                    if (selectedLog.is_stream) {
+                      return selectedLog.response_body_raw || "No body"
+                    }
+                    
+                    // For non-streaming JSON responses, try to pretty print
+                    if (selectedLog.response_body) {
+                      return JSON.stringify(selectedLog.response_body, null, 2)
+                    }
+                    
+                    // Fallback: try to parse raw body as JSON for pretty printing
+                    if (selectedLog.response_body_raw) {
+                      try {
+                        const parsed = JSON.parse(selectedLog.response_body_raw)
+                        return JSON.stringify(parsed, null, 2)
+                      } catch {
+                        // Not valid JSON, show as-is
+                        return selectedLog.response_body_raw
+                      }
+                    }
+                    
+                    return "No body"
+                  })()}
                 </pre>
               </div>
             </CardContent>

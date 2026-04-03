@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-import logging
 from datetime import datetime
-from typing import Any, final
+from typing import final
 
 import asyncpg
 
@@ -11,7 +10,6 @@ from .schemas.logs import LogEntry, LogStats
 from .schemas.openai import ChatCompletionRequest, ChatCompletionResponse
 from .schemas.settings import Settings
 
-logger = logging.getLogger(__name__)
 
 
 @final
@@ -49,9 +47,9 @@ class DBManager:
         )
 
         try:
-            async with admin_pool.acquire() as conn:
+            async with admin_pool.acquire() as conn: #pyright: ignore 
                 # Check if database exists
-                exists = await conn.fetchval(
+                exists = await conn.fetchval( #pyright: ignore
                     "SELECT 1 FROM pg_database WHERE datname = $1",
                     self._db_name,
                 )
@@ -106,9 +104,16 @@ class DBManager:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY,
-                    value JSONB NOT NULL,
+                    value JSONB NOT NULL DEFAULT 'null'::jsonb,
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
+            """)
+            # Insert default settings if table is empty
+            await conn.execute("""
+                INSERT INTO settings (key, value) VALUES
+                    ('upstream_url', 'null'::jsonb),
+                    ('tracing_paths', '["/v1/chat/completions"]'::jsonb)
+                ON CONFLICT (key) DO NOTHING
             """)
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_logs_path ON logs(path)
@@ -384,7 +389,7 @@ class DBManager:
                 total_requests=int(total_row["count"] or 0), #pyright: ignore
                 streaming_requests=int(stream_row["count"] or 0), #pyright: ignore
                 non_streaming_requests=int(non_stream_row["count"] or 0), #pyright: ignore
-                avg_latency_ms=float(avg_latency) if avg_latency is not None else None,
+                avg_latency_ms=float(avg_latency) if avg_latency is not None else None, #pyright: ignore
             )
 
     async def delete_log(self, log_id: int) -> bool:
@@ -439,6 +444,12 @@ class DBManager:
                     )
 
     async def delete_settings(self) -> None:
-        """Delete all settings."""
+        """Reset all settings to defaults."""
         async with self._pool.acquire() as conn: #pyright: ignore
-            await conn.execute("DELETE FROM settings")
+            await conn.execute("""
+                UPDATE settings SET value = CASE key
+                    WHEN 'upstream_url' THEN 'null'::jsonb
+                    WHEN 'tracing_paths' THEN '["/v1/chat/completions"]'::jsonb
+                    ELSE value
+                END, updated_at = NOW()
+            """)

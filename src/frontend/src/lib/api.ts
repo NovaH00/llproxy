@@ -79,7 +79,7 @@ export const api = {
       return handleResponse<Settings>(response);
     },
 
-    set: async (settings: Settings): Promise<Settings> => {
+    set: async (settings: Partial<Settings>): Promise<Settings> => {
       const response = await fetch(`${API_BASE}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
