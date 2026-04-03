@@ -7,16 +7,12 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Trash2, RefreshCw, Search } from "lucide-react"
+import { formatTime, formatRelativeTime } from "@/lib/time"
 
 export function Logs() {
   const queryClient = useQueryClient()
-  const [filters, setFilters] = useState({
-    path: "",
-    model: "",
-    provider: "",
-    method: "",
-  })
-  
+  const [searchQuery, setSearchQuery] = useState("")
+
   // Restore selected log ID from localStorage on mount
   const [selectedId, setSelectedId] = useState<number | null>(() => {
     const saved = localStorage.getItem("logs_selected_id")
@@ -24,18 +20,32 @@ export function Logs() {
   })
 
   const { data: logs, isLoading, refetch } = useQuery({
-    queryKey: ["logs", filters],
+    queryKey: ["logs"],
     queryFn: () => api.logs.list({
       limit: 100,
-      path: filters.path || undefined,
-      model: filters.model || undefined,
-      provider: filters.provider || undefined,
-      method: filters.method || undefined,
     }),
     refetchInterval: 5000,
   })
 
-  const selectedLog = logs?.find(log => log.id === selectedId) || null
+  // Client-side filtering with partial match
+  const filteredLogs = logs?.filter((log) => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    const searchFields = [
+      log.id.toString(),
+      log.path || "",
+      log.model || "",
+      log.provider || "",
+      log.method || "",
+      log.response_status?.toString() || "",
+      log.error_message || "",
+      log.request_body_raw || "",
+      log.response_body_raw || "",
+    ]
+    return searchFields.some((field) => field.toLowerCase().includes(query))
+  })
+
+  const selectedLog = filteredLogs?.find(log => log.id === selectedId) || null
 
   // Save to localStorage when selectedId changes
   useEffect(() => {
@@ -53,16 +63,6 @@ export function Logs() {
     },
   })
 
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return "N/A"
-    const date = new Date(dateStr)
-    const time = date.toLocaleTimeString(undefined, { hour12: false })
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const year = date.getFullYear()
-    return `${time} ${day}-${month}-${year}`
-  }
-
   const getMethodBadge = (method: string) => {
     const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       POST: "default",
@@ -70,13 +70,19 @@ export function Logs() {
       PUT: "outline",
       DELETE: "destructive",
     }
-    return <Badge variant={variants[method] || "outline"}>{method}</Badge>
+    return (
+      <span className="inline-flex items-center">
+        <Badge variant={variants[method] || "outline"} className="flex items-center justify-center h-5 px-2 text-sm leading-none">
+          {method}
+        </Badge>
+      </span>
+    )
   }
 
   if (selectedLog) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex items-center justify-between mb-6 flex-shrink-0">
+        <div className="flex items-center justify-between mb-5 flex-shrink-0">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => {
               localStorage.removeItem("logs_selected_id")
@@ -84,9 +90,13 @@ export function Logs() {
             }}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
+
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Log #{selectedLog.id}</h1>
-              <p className="text-muted-foreground font-mono text-sm">{selectedLog.path}</p>
+              <h1 className="text-3xl font-bold tracking-tight mb-2">Log #{selectedLog.id}</h1>
+              <p className="text-muted-foreground font-mono text-sm flex items-center gap-2">
+                {getMethodBadge(selectedLog.method)}
+                <span>{selectedLog.provider}{selectedLog.path}</span>
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -105,10 +115,6 @@ export function Logs() {
                 <div className="font-medium">{formatTime(selectedLog.created_at)}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Method</div>
-                <div>{getMethodBadge(selectedLog.method)}</div>
-              </div>
-              <div>
                 <div className="text-sm text-muted-foreground">Model</div>
                 <div className="truncate" title={selectedLog.model || ""}>{selectedLog.model || "N/A"}</div>
               </div>
@@ -118,6 +124,36 @@ export function Logs() {
                   {selectedLog.latency_ms ? `${selectedLog.latency_ms}ms` : selectedLog.total_duration_ms ? `${selectedLog.total_duration_ms}ms` : "N/A"}
                 </div>
               </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Total Duration</div>
+                <div className="font-medium">
+                  {selectedLog.total_duration_ms ? `${selectedLog.total_duration_ms}ms` : "N/A"}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Response</div>
+                <Badge variant={selectedLog.response_status && selectedLog.response_status >= 400 ? "destructive" : "success"}>
+                  {selectedLog.response_status || "N/A"}
+                </Badge>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Streaming</div>
+                <Badge variant={selectedLog.is_stream ? "default" : "secondary"}>
+                  {selectedLog.is_stream ? "Yes" : "No"}
+                </Badge>
+              </div>
+              {selectedLog.is_stream && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Chunks</div>
+                  <div className="font-medium">{selectedLog.chunk_count}</div>
+                </div>
+              )}
+              {selectedLog.error_message && (
+                <div className="col-span-4">
+                  <div className="text-sm text-muted-foreground">Error</div>
+                  <div className="text-sm text-red-500 font-mono">{selectedLog.error_message}</div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -165,12 +201,7 @@ export function Logs() {
 
           <Card className="flex flex-col min-h-0">
             <CardHeader className="flex-shrink-0">
-              <div className="flex items-center ">
-                <CardTitle className="text-lg mr-4">Response</CardTitle>
-                <Badge variant={selectedLog.response_status && selectedLog.response_status >= 400 ? "destructive" : "success"}>
-                  {selectedLog.response_status || "N/A"}
-                </Badge>
-              </div>
+              <CardTitle className="text-lg">Response</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto min-h-0 flex flex-col gap-4">
               <div className="flex-shrink-0">
@@ -237,30 +268,12 @@ export function Logs() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Filter by path..."
-                value={filters.path}
-                onChange={(e) => setFilters({ ...filters, path: e.target.value })}
+                placeholder="Search logs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Input
-              placeholder="Model"
-              value={filters.model}
-              onChange={(e) => setFilters({ ...filters, model: e.target.value })}
-              className="w-40"
-            />
-            <Input
-              placeholder="Provider"
-              value={filters.provider}
-              onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
-              className="w-40"
-            />
-            <Input
-              placeholder="Method"
-              value={filters.method}
-              onChange={(e) => setFilters({ ...filters, method: e.target.value })}
-              className="w-24"
-            />
           </div>
 
           <div className="flex-1 min-h-0 overflow-auto">
@@ -273,32 +286,32 @@ export function Logs() {
                   <TableHead>Upstream URL</TableHead>
                   <TableHead>Path</TableHead>
                   <TableHead>Model</TableHead>
-                  <TableHead>Latency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : logs?.length === 0 ? (
+                ) : filteredLogs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No logs found
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {searchQuery ? "No logs match your search" : "No logs found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  logs?.map((log) => (
+                  filteredLogs?.map((log) => (
                     <TableRow
                       key={log.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setSelectedId(log.id)}
                     >
                       <TableCell className="font-mono text-sm">#{log.id}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatTime(log.created_at)}
+                      <TableCell className="text-sm">
+                        <div className="text-foreground font-medium">{formatTime(log.created_at)}</div>
+                        <div className="text-xs text-blue-500 dark:text-blue-400">{formatRelativeTime(log.created_at)}</div>
                       </TableCell>
                       <TableCell>{getMethodBadge(log.method)}</TableCell>
                       <TableCell className="text-sm truncate max-w-[150px]" title={log.provider || ""}>
@@ -308,9 +321,6 @@ export function Logs() {
                         {log.path}
                       </TableCell>
                       <TableCell className="text-sm">{log.model || "-"}</TableCell>
-                      <TableCell className="text-sm">
-                        {log.latency_ms ? `${log.latency_ms}ms` : log.total_duration_ms ? `${log.total_duration_ms}ms` : "-"}
-                      </TableCell>
                     </TableRow>
                   ))
                 )}

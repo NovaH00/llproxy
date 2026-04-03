@@ -23,6 +23,11 @@ export interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
   stream: boolean;
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
   response_format?: {
     type: string;
     json_schema?: {

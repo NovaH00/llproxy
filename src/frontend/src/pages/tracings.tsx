@@ -7,18 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2 } from "lucide-react"
+import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2, FileJson } from "lucide-react"
 import { ConversationView } from "@/components/conversation-view"
 import { MetadataView } from "@/components/metadata-view"
 import { ResponseFormatCard } from "@/components/response-format-card"
+import { formatTime, formatRelativeTime } from "@/lib/time"
 
 export function Tracings() {
   const queryClient = useQueryClient()
-  const [filters, setFilters] = useState({
-    path: "",
-    model: "",
-  })
-  
+  const [searchQuery, setSearchQuery] = useState("")
+
   // Restore selected log ID from localStorage on mount
   const [selectedId, setSelectedId] = useState<number | null>(() => {
     const saved = localStorage.getItem("tracings_selected_id")
@@ -26,14 +24,32 @@ export function Tracings() {
   })
 
   const { data: logs, isLoading, refetch } = useQuery({
-    queryKey: ["tracings", filters],
+    queryKey: ["tracings"],
     queryFn: () => api.logs.listTracings({
       limit: 100,
     }),
     refetchInterval: 5000,
   })
 
-  const selectedLog = logs?.find(log => log.id === selectedId) || null
+  // Client-side filtering with partial match
+  const filteredLogs = logs?.filter((log) => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    const searchFields = [
+      log.id.toString(),
+      log.path || "",
+      log.model || "",
+      log.provider || "",
+      log.method || "",
+      log.response_status?.toString() || "",
+      log.error_message || "",
+      log.request_body_raw || "",
+      log.response_body_raw || "",
+    ]
+    return searchFields.some((field) => field.toLowerCase().includes(query))
+  })
+
+  const selectedLog = filteredLogs?.find(log => log.id === selectedId) || null
 
   // Save to localStorage when selectedId changes
   useEffect(() => {
@@ -51,16 +67,6 @@ export function Tracings() {
     },
   })
 
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return "N/A"
-    const date = new Date(dateStr)
-    const time = date.toLocaleTimeString(undefined, { hour12: false })
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const year = date.getFullYear()
-    return `${time} ${day}-${month}-${year}`
-  }
-
   const getMessageCount = (log: LogEntry) => {
     const requestMessages = log.request_body?.messages?.length || 0
     const hasAssistantResponse = !!(
@@ -68,38 +74,6 @@ export function Tracings() {
       log.response_body_raw?.includes('"content"')
     )
     return requestMessages + (hasAssistantResponse ? 1 : 0)
-  }
-
-  const getTokenCount = (log: LogEntry): string => {
-    // First try to get from parsed response body (non-streaming)
-    if (log.response_body?.usage) {
-      const usage = log.response_body.usage
-      const input = usage.prompt_tokens || 0
-      const output = usage.completion_tokens || 0
-      if (input > 0 || output > 0) {
-        return `${input}+${output}`
-      }
-    }
-    
-    // For streaming responses, extract from timings in the last chunk
-    if (log.response_body_raw) {
-      const lines = log.response_body_raw.split("\n")
-      for (const line of lines.reverse()) {
-        if (line.startsWith("data: ") && line !== "data: [DONE]") {
-          try {
-            const chunk = JSON.parse(line.slice(6))
-            if (chunk.timings) {
-              const input = chunk.timings.prompt_n || 0
-              const output = chunk.timings.predicted_n || 0
-              return `${input}+${output}`
-            }
-          } catch {
-            continue
-          }
-        }
-      }
-    }
-    return "-"
   }
 
   if (selectedLog) {
@@ -115,7 +89,9 @@ export function Tracings() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Tracing #{selectedLog.id}</h1>
-              <p className="text-muted-foreground font-mono text-sm">{selectedLog.path}</p>
+              <p className="text-muted-foreground font-mono text-sm">
+                {selectedLog.provider}{selectedLog.path}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -142,20 +118,20 @@ export function Tracings() {
           </div>
 
           <div className="min-h-0 flex flex-col gap-4">
-            {/* Performance & Metadata - fits content */}
-            <Card className="flex-shrink-0">
-              <CardHeader className="pb-3">
+            {/* Performance & Metadata - half height */}
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardHeader className="pb-3 flex-shrink-0">
                 <CardTitle className="flex items-center gap-2">
                   <Cpu className="h-5 w-5" />
                   Performance & Metadata
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 overflow-auto min-h-0">
                 <MetadataView log={selectedLog} />
               </CardContent>
             </Card>
 
-            {/* Response Format Card - takes remaining space */}
+            {/* Response Format Card - half height */}
             <Card className="flex-1 min-h-0 flex flex-col">
               <CardContent className="flex-1 overflow-auto min-h-0 p-0">
                 <ResponseFormatCard responseFormat={selectedLog.request_body?.response_format} />
@@ -185,18 +161,12 @@ export function Tracings() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Filter by path..."
-                value={filters.path}
-                onChange={(e) => setFilters({ ...filters, path: e.target.value })}
+                placeholder="Search tracings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Input
-              placeholder="Model"
-              value={filters.model}
-              onChange={(e) => setFilters({ ...filters, model: e.target.value })}
-              className="w-64"
-            />
           </div>
 
           <div className="flex-1 min-h-0 overflow-auto">
@@ -209,32 +179,32 @@ export function Tracings() {
                   <TableHead>Path</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Messages</TableHead>
-                  <TableHead>Tokens</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : logs?.length === 0 ? (
+                ) : filteredLogs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No tracings found
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {searchQuery ? "No tracings match your search" : "No tracings found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  logs?.map((log) => (
+                  filteredLogs?.map((log) => (
                     <TableRow
                       key={log.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => setSelectedId(log.id)}
                     >
                       <TableCell className="font-mono text-sm">#{log.id}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatTime(log.created_at)}
+                      <TableCell className="text-sm">
+                        <div className="text-foreground font-medium">{formatTime(log.created_at)}</div>
+                        <div className="text-xs text-blue-500 dark:text-blue-400">{formatRelativeTime(log.created_at)}</div>
                       </TableCell>
                       <TableCell className="text-sm truncate max-w-[200px]" title={log.provider || ""}>
                         {log.provider || "-"}
@@ -247,9 +217,6 @@ export function Tracings() {
                         <Badge variant="secondary" className="text-xs">
                           {getMessageCount(log)} msgs
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {getTokenCount(log)}
                       </TableCell>
                     </TableRow>
                   ))

@@ -197,16 +197,28 @@ interface ResponseFormatCardProps {
 
 export function ResponseFormatCard({ responseFormat }: ResponseFormatCardProps) {
   if (!responseFormat || !responseFormat.json_schema?.schema) {
-    return null
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 py-3 border-b">
+          <div className="flex items-center gap-2 mb-1">
+            <FileJson className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold text-sm text-muted-foreground">Response Format: None</span>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-xs text-muted-foreground italic">No response format specified</p>
+        </div>
+      </div>
+    )
   }
-  
+
   const schema = responseFormat.json_schema.schema
   const schemaName = responseFormat.json_schema.name || 'Schema'
   const schemaDescription = schema.description
-  
+
   // Merge $defs and definitions for compatibility
   const defs = { ...schema.$defs, ...schema.definitions }
-  
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b">

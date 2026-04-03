@@ -252,9 +252,9 @@ export function ConversationView({ log }: ConversationViewProps) {
 
   const getRoleLabel = (role: string) => {
     if (role === "assistant" && log.model) {
-      return log.model.split("/").pop()?.split(":")[0] || "Assistant"
+      return log.model.split("/").pop()?.split(":")[0] || "assistant"
     }
-    return role.charAt(0).toUpperCase() + role.slice(1)
+    return role
   }
 
   // Build a map of tool_call_id -> tool name for tool messages
@@ -306,7 +306,7 @@ export function ConversationView({ log }: ConversationViewProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h3 className="text-sm font-medium text-muted-foreground">Conversation</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Total messages: {allMessages.length}</h3>
         <div className="flex gap-1">
           <Button
             variant="ghost"
@@ -343,7 +343,7 @@ export function ConversationView({ log }: ConversationViewProps) {
                   <span className="text-muted-foreground/70">
                     {getRoleIcon(msg.role)}
                   </span>
-                  <Badge variant="outline" className="text-xs capitalize">
+                  <Badge variant="outline" className="text-sm">
                     {msg.role === "tool" ? `Tool: ${getToolName(msg.tool_call_id)}` : getRoleLabel(msg.role)}
                   </Badge>
                   {msg.role === "tool" && msg.tool_call_id && (

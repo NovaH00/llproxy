@@ -72,7 +72,7 @@ class LoggingService:
             self._queue.put_nowait(log_entry)
             return True
         except asyncio.QueueFull:
-            logger.warning(f"[LoggingService] Queue full (race condition), dropping log")
+            logger.warning("[LoggingService] Queue full (race condition), dropping log")
             self._error_count += 1
             return False
     

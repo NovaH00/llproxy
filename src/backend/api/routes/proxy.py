@@ -96,7 +96,7 @@ async def stream_and_log(
             if success:
                 logger.info(f"[LOGGING] Enqueued streaming log entry (path={log_entry.path})")
             else:
-                logger.error(f"[LOGGING ERROR] Failed to enqueue streaming log (queue full)")
+                logger.error("[LOGGING ERROR] Failed to enqueue streaming log (queue full)")
 
 
 @router.api_route("/{path:path}", methods=["POST", "GET"], operation_id="proxy_request")
@@ -127,7 +127,7 @@ async def proxy(
     log_entry = LogEntry(
         path=clean_path,
         method=request.method,
-        provider=upstream_url.split("//")[-1].split("/")[0],
+        provider=upstream_url,  # Keep protocol: https://api.openai.com
     )
 
     body = await request.body()
@@ -190,7 +190,7 @@ async def proxy(
         if success:
             logger.info(f"[LOGGING] Enqueued non-streaming log entry (path={log_entry.path})")
         else:
-            logger.error(f"[LOGGING ERROR] Failed to enqueue non-streaming log (queue full)")
+            logger.error("[LOGGING ERROR] Failed to enqueue non-streaming log (queue full)")
 
         return Response(
             content=response_body,
@@ -211,7 +211,7 @@ async def proxy(
         if success:
             logger.info(f"[LOGGING] Enqueued error log entry (path={log_entry.path})")
         else:
-            logger.error(f"[LOGGING ERROR] Failed to enqueue error log (queue full)")
+            logger.error("[LOGGING ERROR] Failed to enqueue error log (queue full)")
 
         return Response(
             content=json.dumps({"error": f"Upstream request failed: {str(e)}"}),
@@ -230,7 +230,7 @@ async def proxy(
         if success:
             logger.info(f"[LOGGING] Enqueued exception log entry (path={log_entry.path})")
         else:
-            logger.error(f"[LOGGING ERROR] Failed to enqueue exception log (queue full)")
+            logger.error("[LOGGING ERROR] Failed to enqueue exception log (queue full)")
 
         return Response(
             content=json.dumps({"error": f"Proxy error: {str(e)}"}),
