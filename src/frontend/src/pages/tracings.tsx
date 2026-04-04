@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, RefreshCw, Search, MessageSquare, Cpu, Trash2 } from "lucide-react"
+import { ArrowLeft, RefreshCw, Search, MessageSquare, Trash2 } from "lucide-react"
 import { ConversationView } from "@/components/conversation-view"
 import { MetadataView } from "@/components/metadata-view"
 import { ResponseFormatCard } from "@/components/response-format-card"
@@ -152,13 +152,7 @@ export function Tracings() {
           <div className="min-h-0 flex flex-col gap-4">
             {/* Performance & Metadata - half height */}
             <Card className="flex-1 min-h-0 flex flex-col">
-              <CardHeader className="pb-3 flex-shrink-0">
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5" />
-                  Performance & Metadata
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-auto min-h-0">
+              <CardContent className="flex-1 overflow-auto min-h-0 py-6">
                 <MetadataView log={selectedLog} />
               </CardContent>
             </Card>

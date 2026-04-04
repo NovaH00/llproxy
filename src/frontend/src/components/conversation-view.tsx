@@ -1,9 +1,125 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { LogEntry } from "@/types"
-import { Settings, User, Bot, Brain, Eye, ChevronDown, ChevronUp, Hammer, Wrench } from "lucide-react"
+import type { LogEntry, ToolDefinition } from "@/types"
+import { Settings, User, Bot, Brain, Eye, ChevronDown, ChevronUp, ChevronRight, Wrench, WrenchIcon, FunctionSquare } from "lucide-react"
 import type { ToolCall } from "@/types"
+
+// Reuse schema field rendering from ResponseFormatCard
+interface ToolSchemaFieldProps {
+  name: string
+  schema: any
+  required?: string[]
+  depth?: number
+  defs?: Record<string, any>
+}
+
+function ToolSchemaField({ name, schema, required = [], depth = 0, defs = {} }: ToolSchemaFieldProps) {
+  const [isOpen, setIsOpen] = useState(depth < 1)
+
+  const isRequired = required.includes(name)
+
+  const resolvedSchema = schema.$ref
+    ? resolveToolRef(schema.$ref, defs) || schema
+    : schema
+
+  const hasChildren = resolvedSchema.properties ||
+    (resolvedSchema.type === 'array' && (
+      resolvedSchema.items?.properties ||
+      (resolvedSchema.items?.$ref && resolveToolRef(resolvedSchema.items.$ref, defs))
+    ))
+
+  const description = resolvedSchema.description
+
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      string: 'text-green-600 dark:text-green-400',
+      number: 'text-blue-600 dark:text-blue-400',
+      integer: 'text-blue-600 dark:text-blue-400',
+      boolean: 'text-purple-600 dark:text-purple-400',
+      array: 'text-orange-600 dark:text-orange-400',
+      object: 'text-red-600 dark:text-red-400',
+    }
+    return colors[type] || 'text-muted-foreground'
+  }
+
+  const formatType = (s: any): string => {
+    if (s.type === 'array') {
+      if (s.items?.$ref) {
+        const refName = s.items.$ref.split('/').pop()
+        return `Array<${refName}>`
+      }
+      const itemsType = s.items?.type || 'any'
+      return `Array<${itemsType}>`
+    }
+    if (s.enum) {
+      return s.enum.map((v: any) => JSON.stringify(v)).join(' | ')
+    }
+    return s.type || 'any'
+  }
+
+  const indent = depth * 16
+  const displayName = schema.$ref ? schema.$ref.split('/').pop() || name : name
+
+  return (
+    <div className="py-0.5">
+      <div
+        className="flex items-center gap-1 hover:bg-muted/50 rounded px-2 py-0.5 cursor-pointer transition-colors"
+        style={{ paddingLeft: `${indent}px` }}
+        onClick={() => hasChildren && setIsOpen(!isOpen)}
+      >
+        {hasChildren ? (
+          <Button variant="ghost" size="icon" className="h-4 w-4 shrink-0 p-0" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}>
+            {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </Button>
+        ) : (
+          <div className="w-4 h-4 shrink-0" />
+        )}
+        <span className="font-mono text-sm font-medium">{displayName}</span>
+        {isRequired && <Badge variant="destructive" className="h-4 text-[9px] px-1 scale-90 origin-left">required</Badge>}
+        <span className={`font-mono text-sm ${getTypeColor(resolvedSchema.type)}`}>: {formatType(resolvedSchema)}</span>
+      </div>
+      {description && (
+        <div className="text-xs text-muted-foreground italic ml-6 mr-2" style={{ paddingLeft: `${indent}px` }}>{description}</div>
+      )}
+      {isOpen && hasChildren && (
+        <div>
+          {resolvedSchema.type === 'array' && resolvedSchema.items?.$ref && (() => {
+            const refSchema = resolveToolRef(resolvedSchema.items.$ref, defs)
+            if (refSchema?.properties) {
+              return Object.entries(refSchema.properties).map(([childName, childSchema]) => (
+                <ToolSchemaField key={childName} name={childName} schema={childSchema as any} required={refSchema.required || []} depth={depth + 1} defs={defs} />
+              ))
+            }
+            return null
+          })()}
+          {resolvedSchema.type === 'array' && resolvedSchema.items?.properties && !resolvedSchema.items?.$ref &&
+            Object.entries(resolvedSchema.items.properties).map(([childName, childSchema]) => (
+              <ToolSchemaField key={childName} name={childName} schema={childSchema as any} required={resolvedSchema.items.required || []} depth={depth + 1} defs={defs} />
+            ))
+          }
+          {resolvedSchema.properties &&
+            Object.entries(resolvedSchema.properties).map(([childName, childSchema]) => (
+              <ToolSchemaField key={childName} name={childName} schema={childSchema as any} required={resolvedSchema.required || []} depth={depth + 1} defs={defs} />
+            ))
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+function resolveToolRef(ref: string, defs: Record<string, any>) {
+  if (ref.startsWith('#/$defs/')) {
+    const defName = ref.split('/').pop()
+    return defs[defName || '']
+  }
+  if (ref.startsWith('#/definitions/')) {
+    const defName = ref.split('/').pop()
+    return defs[defName || '']
+  }
+  return null
+}
 
 interface Message {
   role: string
@@ -79,6 +195,101 @@ function ToolResultView({ content }: ToolResultViewProps) {
       ) : (
         <div className="text-sm whitespace-pre-wrap font-mono bg-background border rounded-md p-2 overflow-auto max-h-96 text-foreground">
           {content}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface ToolsListViewProps {
+  tools: ToolDefinition[]
+}
+
+interface ToolItemProps {
+  tool: ToolDefinition
+}
+
+function ToolItem({ tool }: ToolItemProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const schema = tool.function.parameters
+  const defs = schema?.$defs || schema?.definitions || {}
+  const schemaWithoutDefs: Record<string, unknown> | undefined = schema
+    ? Object.fromEntries(Object.entries(schema).filter(([k]) => k !== '$defs' && k !== 'definitions'))
+    : undefined
+
+  return (
+    <div className="border-b last:border-b-0">
+      <div
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <FunctionSquare className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
+          <span className="text-sm font-semibold text-foreground">{tool.function.name}</span>
+        </div>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="px-4 pb-3">
+          {tool.function.description && (
+            <div className="text-sm text-muted-foreground mb-3 whitespace-pre-wrap">{tool.function.description}</div>
+          )}
+          {schemaWithoutDefs && (schemaWithoutDefs as any).properties && (
+            <div className="border rounded-md bg-background">
+              <div className="px-3 py-1.5 border-b bg-muted/30">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Parameters</span>
+              </div>
+              <div className="p-2">
+                {Object.entries((schemaWithoutDefs as any).properties).map(([propName, propSchema]) => (
+                  <ToolSchemaField
+                    key={propName}
+                    name={propName}
+                    schema={propSchema}
+                    required={(schemaWithoutDefs as any).required || []}
+                    depth={0}
+                    defs={defs}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolsListView({ tools }: ToolsListViewProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div
+        className="flex items-center justify-between px-4 py-2.5 bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors select-none"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <WrenchIcon className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
+          <span className="text-base font-semibold text-foreground">Available tools</span>
+          <Badge variant="secondary" className="text-xs">{tools.length}</Badge>
+        </div>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="divide-y">
+          {tools.map((tool: ToolDefinition, idx: number) => (
+            <ToolItem key={idx} tool={tool} />
+          ))}
         </div>
       )}
     </div>
@@ -236,30 +447,31 @@ export function ConversationView({ log }: ConversationViewProps) {
   const getRoleStyles = (role: string) => {
     switch (role) {
       case "system":
-        return "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400"
+        return "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-400"
       case "user":
-        return "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400"
+        return "bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-400"
       case "assistant":
-        return "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+        return "bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
       case "tool":
-        return "bg-gray-500/10 border-gray-500/20 text-gray-700 dark:text-gray-400"
+        return "bg-gray-500/15 border-gray-500/40 text-gray-700 dark:text-gray-400"
       default:
         return "bg-muted border-border"
     }
   }
 
   const getRoleIcon = (role: string) => {
+    const iconClass = "h-4 w-4"
     switch (role) {
       case "system":
-        return <Settings className="h-4 w-4" />
+        return <Settings className={`${iconClass} text-amber-600 dark:text-amber-400`} />
       case "user":
-        return <User className="h-4 w-4" />
+        return <User className={`${iconClass} text-blue-600 dark:text-blue-400`} />
       case "assistant":
-        return <Bot className="h-4 w-4" />
+        return <Bot className={`${iconClass} text-emerald-600 dark:text-emerald-400`} />
       case "tool":
-        return <Hammer className="h-4 w-4" />
+        return <Wrench className={`${iconClass} text-gray-600 dark:text-gray-400`} />
       default:
-        return <Bot className="h-4 w-4" />
+        return <Bot className={`${iconClass} text-foreground`} />
     }
   }
 
@@ -341,6 +553,9 @@ export function ConversationView({ log }: ConversationViewProps) {
         </div>
       </div>
       <div className="space-y-3 overflow-auto flex-1 pr-2">
+        {log.request_body?.tools && log.request_body.tools.length > 0 && (
+          <ToolsListView tools={log.request_body.tools} />
+        )}
         {allMessages.map((msg, idx) => {
           const isVisible = visibleMessages[idx] !== false
           const hasReasoning = msg.reasoning_content
@@ -353,11 +568,17 @@ export function ConversationView({ log }: ConversationViewProps) {
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground/70">
+                  <span>
                     {getRoleIcon(msg.role)}
                   </span>
-                  <Badge variant="outline" className="text-sm">
-                    {msg.role === "tool" ? `Tool: ${getToolName(msg.tool_call_id)}` : getRoleLabel(msg.role)}
+                  <Badge variant="outline" className={`text-sm border-current ${
+                    msg.role === 'system' ? 'text-amber-600 dark:text-amber-400 border-amber-500/50' :
+                    msg.role === 'user' ? 'text-blue-600 dark:text-blue-400 border-blue-500/50' :
+                    msg.role === 'assistant' ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/50' :
+                    msg.role === 'tool' ? 'text-gray-600 dark:text-gray-400 border-gray-500/50' :
+                    'text-foreground'
+                  }`}>
+                    {msg.role === "tool" ? `Tool Output: ${getToolName(msg.tool_call_id)}` : getRoleLabel(msg.role)}
                   </Badge>
                   {msg.role === "tool" && msg.tool_call_id && (
                     <Badge variant="secondary" className="text-[10px] font-mono">

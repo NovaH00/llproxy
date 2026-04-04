@@ -3,9 +3,30 @@
 Lightweight schemas for tracing passthrough requests/responses.
 Only essential fields are defined - extra fields are captured via model_config.
 """
-from typing import ClassVar
+from typing import ClassVar, Literal
 from pydantic import BaseModel, ConfigDict
 
+
+# >>>> New implementation
+class ChatContentText(BaseModel):
+    type: Literal["text"] = "text"
+    text: str
+
+class ChatContentImage(BaseModel):
+    type: Literal["input_image"] = "input_image"
+    image_url: str 
+
+class Audio(BaseModel):
+    data: str
+    format: str
+
+class ChatContentAudio(BaseModel):
+    type: Literal["input_audio"] = "input_audio"
+    input_audio: Audio 
+
+type ChatContentType = ChatContentText | ChatContentImage | ChatContentAudio
+
+# <<<<
 
 class ChatMessage(BaseModel):
     """A message in a chat conversation."""
@@ -13,7 +34,7 @@ class ChatMessage(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     role: str
-    content: str | list | None = None
+    content: str | list | None = None # TODO: Implement the type for the list
 
 
 class ChatCompletionRequest(BaseModel):

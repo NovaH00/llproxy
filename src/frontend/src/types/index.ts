@@ -23,6 +23,8 @@ export interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
   stream: boolean;
+  tools?: ToolDefinition[];
+  tool_choice?: string | { type: string; function?: { name: string } };
   temperature?: number;
   top_p?: number;
   max_tokens?: number;
@@ -49,6 +51,15 @@ export interface ToolCall {
   function: {
     name: string
     arguments: string
+  }
+}
+
+export interface ToolDefinition {
+  type: string
+  function: {
+    name: string
+    description?: string
+    parameters?: Record<string, unknown>
   }
 }
 
