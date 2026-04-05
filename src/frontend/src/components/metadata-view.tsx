@@ -267,25 +267,27 @@ export function MetadataView({ log }: MetadataViewProps) {
     },
     {
       label: "Frequency Penalty",
-      value: frequencyPenalty !== undefined ? frequencyPenalty.toString() : <span className="text-muted-foreground italic">0</span>,
+      value: frequencyPenalty !== undefined ? frequencyPenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Frequency Penalty</p>
           <p className="text-base text-muted-foreground">
-            Penalizes tokens based on their frequency in the text. Positive values reduce repetition. Range: -2.0 to 2.0. Default is 0.
+            Penalizes tokens based on their frequency in the text. Positive values reduce repetition. Range: -2.0 to 2.0.
           </p>
+          {frequencyPenalty === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
     {
       label: "Presence Penalty",
-      value: presencePenalty !== undefined ? presencePenalty.toString() : <span className="text-muted-foreground italic">0</span>,
+      value: presencePenalty !== undefined ? presencePenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Presence Penalty</p>
           <p className="text-base text-muted-foreground">
-            Penalizes tokens that have already appeared in the text. Encourages the model to talk about new topics. Range: -2.0 to 2.0. Default is 0.
+            Penalizes tokens that have already appeared in the text. Encourages the model to talk about new topics. Range: -2.0 to 2.0.
           </p>
+          {presencePenalty === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
