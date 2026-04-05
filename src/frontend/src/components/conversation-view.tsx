@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import type { LogEntry, ToolDefinition } from "@/types"
 import { Settings, User, Bot, Brain, Eye, ChevronDown, ChevronUp, ChevronRight, Wrench, WrenchIcon, FunctionSquare } from "lucide-react"
 import type { ToolCall } from "@/types"
+import { useModelColor } from "@/lib/model-color"
 
 // Reuse schema field rendering from ResponseFormatCard
 interface ToolSchemaFieldProps {
@@ -302,6 +303,7 @@ interface ConversationViewProps {
 
 export function ConversationView({ log }: ConversationViewProps) {
   const messages = log.request_body?.messages || []
+  const modelColor = useModelColor(log.model)
 
   // Helper to extract text from content (string or array of content blocks)
   const extractText = (content: string | unknown[] | null | undefined): string => {
@@ -459,7 +461,7 @@ export function ConversationView({ log }: ConversationViewProps) {
     }
   }
 
-  const getRoleIcon = (role: string) => {
+  const getRoleIcon = (role: string, modelColor?: string) => {
     const iconClass = "h-4 w-4"
     switch (role) {
       case "system":
@@ -467,7 +469,7 @@ export function ConversationView({ log }: ConversationViewProps) {
       case "user":
         return <User className={`${iconClass} text-blue-600 dark:text-blue-400`} />
       case "assistant":
-        return <Bot className={`${iconClass} text-emerald-600 dark:text-emerald-400`} />
+        return <Bot className={iconClass} style={modelColor ? { color: modelColor } : undefined} />
       case "tool":
         return <Wrench className={`${iconClass} text-gray-600 dark:text-gray-400`} />
       default:
@@ -565,19 +567,19 @@ export function ConversationView({ log }: ConversationViewProps) {
             <div
               key={idx}
               className={`rounded-lg border p-4 ${getRoleStyles(msg.role)} ${!isVisible ? "opacity-50" : ""}`}
+              style={msg.role === 'assistant' && modelColor ? { borderColor: modelColor + '66' } : undefined}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span>
-                    {getRoleIcon(msg.role)}
+                    {getRoleIcon(msg.role, msg.role === 'assistant' ? modelColor : undefined)}
                   </span>
                   <Badge variant="outline" className={`text-sm border-current ${
                     msg.role === 'system' ? 'text-amber-600 dark:text-amber-400 border-amber-500/50' :
                     msg.role === 'user' ? 'text-blue-600 dark:text-blue-400 border-blue-500/50' :
-                    msg.role === 'assistant' ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/50' :
                     msg.role === 'tool' ? 'text-gray-600 dark:text-gray-400 border-gray-500/50' :
                     'text-foreground'
-                  }`}>
+                  }`} style={msg.role === 'assistant' && modelColor ? { color: modelColor, borderColor: modelColor + '80' } : undefined}>
                     {msg.role === "tool" ? `Tool Output: ${getToolName(msg.tool_call_id)}` : getRoleLabel(msg.role)}
                   </Badge>
                   {msg.role === "tool" && msg.tool_call_id && (
@@ -604,23 +606,21 @@ export function ConversationView({ log }: ConversationViewProps) {
                       )}
                     </Button>
                   )}
-                  {msg.role !== "tool" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleMessage(idx)
-                      }}
-                    >
-                      {isVisible ? (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleMessage(idx)
+                    }}
+                  >
+                    {isVisible ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
                 </div>
               </div>
 

@@ -12,6 +12,15 @@ import { ConversationView } from "@/components/conversation-view"
 import { MetadataView } from "@/components/metadata-view"
 import { ResponseFormatCard } from "@/components/response-format-card"
 import { formatTime, formatRelativeTime } from "@/lib/time"
+import { useModelColor } from "@/lib/model-color"
+
+function ModelCell({ model }: { model: string | null | undefined }) {
+  const color = useModelColor(model)
+  const display = model && model !== "none" && model !== "None" ? model : "-"
+  return (
+    <span className="font-mono text-base" style={color ? { color } : undefined}>{display}</span>
+  )
+}
 
 export function Tracings() {
   const queryClient = useQueryClient()
@@ -50,6 +59,7 @@ export function Tracings() {
   })
 
   const selectedLog = filteredLogs?.find(log => log.id === selectedId) || null
+  const selectedLogColor = useModelColor(selectedLog?.model)
 
   // Save to localStorage when selectedId changes
   useEffect(() => {
@@ -140,7 +150,7 @@ export function Tracings() {
               <CardHeader className="flex-shrink-0">
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  Conversation
+                  Conversation{selectedLog.model && selectedLog.model !== "none" && selectedLog.model !== "None" && <> with <span style={selectedLogColor ? { color: selectedLogColor } : undefined}>{selectedLog.model}</span></>}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto min-h-0">
@@ -233,7 +243,7 @@ export function Tracings() {
                       <TableCell className="font-mono text-sm">#{log.id}</TableCell>
                       <TableCell className="text-sm">
                         <div className="text-foreground font-medium">{formatTime(log.created_at)}</div>
-                        <div className="text-xs text-blue-500 dark:text-blue-400">{formatRelativeTime(log.created_at)}</div>
+                        <div className="text-sm text-blue-500 dark:text-blue-400">{formatRelativeTime(log.created_at)}</div>
                       </TableCell>
                       <TableCell className="text-sm truncate max-w-[200px]" title={log.provider || ""}>
                         {log.provider || "-"}
@@ -241,7 +251,9 @@ export function Tracings() {
                       <TableCell className="font-mono text-sm max-w-[200px] truncate">
                         {log.path}
                       </TableCell>
-                      <TableCell className="text-sm">{log.model || "-"}</TableCell>
+                      <TableCell>
+                        <ModelCell model={log.model} />
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">
                           {getMessageCount(log)} msgs
