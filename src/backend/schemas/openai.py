@@ -42,7 +42,7 @@ class ChatCompletionRequest(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
-    model: str
+    model: str | None = None
     messages: list[ChatMessage]
     stream: bool = False
 

@@ -20,7 +20,7 @@ export interface LogEntry {
 }
 
 export interface ChatCompletionRequest {
-  model: string;
+  model?: string | null;
   messages: ChatMessage[];
   stream: boolean;
   tools?: ToolDefinition[];
