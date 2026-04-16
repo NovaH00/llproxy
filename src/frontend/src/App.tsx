@@ -5,6 +5,7 @@ import { Dashboard } from "@/pages/dashboard"
 import { Tracings } from "@/pages/tracings"
 import { Logs } from "@/pages/logs"
 import { Settings } from "@/pages/settings"
+import { Toaster } from "@/components/ui/toaster"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>
+        <Toaster />
       </BrowserRouter>
     </QueryClientProvider>
   )

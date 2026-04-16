@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Trash2, RefreshCw, Search } from "lucide-react"
 import { formatTime, formatRelativeTime } from "@/lib/time"
+import { CopyButton } from "@/components/copy-button"
 
 export function Logs() {
   const queryClient = useQueryClient()
@@ -46,6 +47,41 @@ export function Logs() {
   })
 
   const selectedLog = filteredLogs?.find(log => log.id === selectedId) || null
+
+  const requestHeadersStr = useMemo(() => 
+    selectedLog?.request_headers ? JSON.stringify(selectedLog.request_headers, null, 2) : ""
+  , [selectedLog])
+
+  const responseHeadersStr = useMemo(() => 
+    selectedLog?.response_headers ? JSON.stringify(selectedLog.response_headers, null, 2) : ""
+  , [selectedLog])
+
+  const requestBodyStr = useMemo(() => {
+    if (!selectedLog) return ""
+    if (selectedLog.request_body) return JSON.stringify(selectedLog.request_body, null, 2)
+    if (selectedLog.request_body_raw) {
+      try {
+        return JSON.stringify(JSON.parse(selectedLog.request_body_raw), null, 2)
+      } catch {
+        return selectedLog.request_body_raw
+      }
+    }
+    return ""
+  }, [selectedLog])
+
+  const responseBodyStr = useMemo(() => {
+    if (!selectedLog) return ""
+    if (selectedLog.is_stream) return selectedLog.response_body_raw || ""
+    if (selectedLog.response_body) return JSON.stringify(selectedLog.response_body, null, 2)
+    if (selectedLog.response_body_raw) {
+      try {
+        return JSON.stringify(JSON.parse(selectedLog.response_body_raw), null, 2)
+      } catch {
+        return selectedLog.response_body_raw
+      }
+    }
+    return ""
+  }, [selectedLog])
 
   // Save to localStorage when selectedId changes
   useEffect(() => {
@@ -150,7 +186,10 @@ export function Logs() {
               )}
               {selectedLog.error_message && (
                 <div className="col-span-4">
-                  <div className="text-sm text-muted-foreground">Error</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-sm text-muted-foreground">Error</div>
+                    <CopyButton value={selectedLog.error_message} className="h-6 w-6" />
+                  </div>
                   <div className="text-sm text-red-500 font-mono">{selectedLog.error_message}</div>
                 </div>
               )}
@@ -165,35 +204,21 @@ export function Logs() {
             </CardHeader>
             <CardContent className="flex-1 overflow-auto min-h-0 flex flex-col gap-4">
               <div className="flex-shrink-0">
-                <h4 className="text-sm font-medium mb-2">Headers</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">Headers</h4>
+                  {requestHeadersStr && <CopyButton value={requestHeadersStr} className="h-6 w-6" />}
+                </div>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto h-36">
-                  {selectedLog.request_headers
-                    ? JSON.stringify(selectedLog.request_headers, null, 2)
-                    : "No headers"}
+                  {requestHeadersStr || "No headers"}
                 </pre>
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
-                <h4 className="text-sm font-medium mb-2">Body</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">Body</h4>
+                  {requestBodyStr && <CopyButton value={requestBodyStr} className="h-6 w-6" />}
+                </div>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto flex-1 min-h-0">
-                  {(() => {
-                    // For request body, try to pretty print JSON
-                    if (selectedLog.request_body) {
-                      return JSON.stringify(selectedLog.request_body, null, 2)
-                    }
-                    
-                    // Fallback: try to parse raw body as JSON for pretty printing
-                    if (selectedLog.request_body_raw) {
-                      try {
-                        const parsed = JSON.parse(selectedLog.request_body_raw)
-                        return JSON.stringify(parsed, null, 2)
-                      } catch {
-                        // Not valid JSON, show as-is
-                        return selectedLog.request_body_raw
-                      }
-                    }
-                    
-                    return "No body"
-                  })()}
+                  {requestBodyStr || "No body"}
                 </pre>
               </div>
             </CardContent>
@@ -205,42 +230,23 @@ export function Logs() {
             </CardHeader>
             <CardContent className="flex-1 overflow-auto min-h-0 flex flex-col gap-4">
               <div className="flex-shrink-0">
-                <h4 className="text-sm font-medium mb-2">Headers</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">Headers</h4>
+                  {responseHeadersStr && <CopyButton value={responseHeadersStr} className="h-6 w-6" />}
+                </div>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-36">
-                  {selectedLog.response_headers
-                    ? JSON.stringify(selectedLog.response_headers, null, 2)
-                    : "No headers"}
+                  {responseHeadersStr || "No headers"}
                 </pre>
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
-                <h4 className="text-sm font-medium mb-2">
-                  Body {selectedLog.is_stream && <span className="text-muted-foreground font-normal">({selectedLog.chunk_count} chunks)</span>}
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">
+                    Body {selectedLog.is_stream && <span className="text-muted-foreground font-normal">({selectedLog.chunk_count} chunks)</span>}
+                  </h4>
+                  {responseBodyStr && <CopyButton value={responseBodyStr} className="h-6 w-6" />}
+                </div>
                 <pre className="bg-muted p-3 rounded-md text-xs overflow-auto flex-1 min-h-0">
-                  {(() => {
-                    // For streaming responses, show raw SSE format
-                    if (selectedLog.is_stream) {
-                      return selectedLog.response_body_raw || "No body"
-                    }
-                    
-                    // For non-streaming JSON responses, try to pretty print
-                    if (selectedLog.response_body) {
-                      return JSON.stringify(selectedLog.response_body, null, 2)
-                    }
-                    
-                    // Fallback: try to parse raw body as JSON for pretty printing
-                    if (selectedLog.response_body_raw) {
-                      try {
-                        const parsed = JSON.parse(selectedLog.response_body_raw)
-                        return JSON.stringify(parsed, null, 2)
-                      } catch {
-                        // Not valid JSON, show as-is
-                        return selectedLog.response_body_raw
-                      }
-                    }
-                    
-                    return "No body"
-                  })()}
+                  {responseBodyStr || "No body"}
                 </pre>
               </div>
             </CardContent>
