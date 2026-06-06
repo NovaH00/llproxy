@@ -63,7 +63,7 @@ export function MetadataView({ log }: MetadataViewProps) {
       if (line.startsWith("data: ") && line !== "data: [DONE]") {
         try {
           const chunk = JSON.parse(line.slice(6))
-          if (chunk.timings) {
+          if (chunk && typeof chunk === "object" && chunk.timings) {
             timings = chunk.timings
             break
           }
@@ -103,7 +103,7 @@ export function MetadataView({ log }: MetadataViewProps) {
       if (line.startsWith("data: ") && line !== "data: [DONE]") {
         try {
           const chunk = JSON.parse(line.slice(6))
-          if (chunk.choices?.[0]?.finish_reason) {
+          if (chunk && typeof chunk === "object" && chunk.choices?.[0]?.finish_reason) {
             finishReason = chunk.choices[0].finish_reason
             break
           }
@@ -228,66 +228,66 @@ export function MetadataView({ log }: MetadataViewProps) {
   const generationStats: StatWithExplanation[] = [
     {
       label: "Temperature",
-      value: temperature !== undefined ? temperature.toString() : <span className="text-muted-foreground italic">Default</span>,
+      value: temperature != null ? temperature.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Temperature</p>
           <p className="text-base text-muted-foreground">
             Controls randomness. Lower values (0.0-0.3) make output more deterministic. Higher values (0.7-2.0) make it more creative.
           </p>
-          {temperature === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
+          {temperature == null && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
     {
       label: "Top P",
-      value: topP !== undefined ? topP.toString() : <span className="text-muted-foreground italic">Default</span>,
+      value: topP != null ? topP.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Top P (Nucleus Sampling)</p>
           <p className="text-base text-muted-foreground">
             Limits token selection to the smallest set whose cumulative probability exceeds this value. Range: 0.0-1.0. Lower = more focused output.
           </p>
-          {topP === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
+          {topP == null && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
     {
       label: "Max Tokens",
-      value: maxTokens !== undefined ? maxTokens.toString() : <span className="text-muted-foreground italic">Unlimited</span>,
+      value: maxTokens != null ? maxTokens.toString() : <span className="text-muted-foreground italic">Unlimited</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Max Tokens</p>
           <p className="text-base text-muted-foreground">
             Maximum number of tokens the model can generate. If the response hits this limit, it will be truncated (finish_reason: "length").
           </p>
-          {maxTokens === undefined && <p className="text-sm text-muted-foreground italic">Not set — model will generate until it naturally stops.</p>}
+          {maxTokens == null && <p className="text-sm text-muted-foreground italic">Not set — model will generate until it naturally stops.</p>}
         </div>
       ),
     },
     {
       label: "Frequency Penalty",
-      value: frequencyPenalty !== undefined ? frequencyPenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
+      value: frequencyPenalty != null ? frequencyPenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Frequency Penalty</p>
           <p className="text-base text-muted-foreground">
             Penalizes tokens based on their frequency in the text. Positive values reduce repetition. Range: -2.0 to 2.0.
           </p>
-          {frequencyPenalty === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
+          {frequencyPenalty == null && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
     {
       label: "Presence Penalty",
-      value: presencePenalty !== undefined ? presencePenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
+      value: presencePenalty != null ? presencePenalty.toString() : <span className="text-muted-foreground italic">Default</span>,
       explanation: (
         <div className="space-y-2">
           <p className="font-medium">Presence Penalty</p>
           <p className="text-base text-muted-foreground">
             Penalizes tokens that have already appeared in the text. Encourages the model to talk about new topics. Range: -2.0 to 2.0.
           </p>
-          {presencePenalty === undefined && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
+          {presencePenalty == null && <p className="text-xs text-muted-foreground italic">Not explicitly set in this request.</p>}
         </div>
       ),
     },
